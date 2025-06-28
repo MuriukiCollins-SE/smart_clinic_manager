@@ -1,5 +1,3 @@
-# routes/doctor.py
-
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db
@@ -19,8 +17,13 @@ def get_assigned_patients():
     for appt in appointments:
         patient = User.query.get(appt.patient_id)
         lab_results = LabResult.query.filter_by(patient_id=appt.patient_id).all()
-        results = [{'id': r.id, 'results': r.results, 'created_at': r.created_at.strftime('%Y-%m-%d')} for r in lab_results]
-        
+        results = [{
+            'id': r.id,
+            'results': r.results,
+            'created_at': r.created_at.strftime('%Y-%m-%d'),
+            'test_description': r.test_description
+        } for r in lab_results]
+
         output.append({
             'appointment_id': appt.id,
             'patient_id': patient.id,
@@ -63,16 +66,19 @@ def recommend_lab_test():
 
     patient_id = data.get('patient_id')
     labtech_id = data.get('labtech_id')
+    test_description = data.get('description')  # matches frontend field
 
-    if not all([patient_id, labtech_id]):
+    if not all([patient_id, labtech_id, test_description]):
         return jsonify({'msg': 'Missing required fields'}), 400
 
-    # Create empty lab result assigned to labtech
-    lab = LabResult(
+    lab_result = LabResult(
         patient_id=patient_id,
-        labtech_id=labtech_id
+        doctor_id=doctor_id,
+        labtech_id=labtech_id,
+        test_description=test_description,
+        created_at=datetime.utcnow()
     )
-    db.session.add(lab)
+    db.session.add(lab_result)
     db.session.commit()
 
-    return jsonify({'msg': 'Lab test recommendation assigned'}), 201
+    return jsonify({'msg': 'Lab test assigned to lab technician'}), 201
